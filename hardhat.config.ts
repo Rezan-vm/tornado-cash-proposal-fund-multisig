@@ -25,7 +25,7 @@ const config: HardhatUserConfig = {
       gasPrice: 0,
       forking: {
         url: process.env.ETH_RPC_MAINNET,
-        blockNumber: 12476817,
+        blockNumber: 12524000,
       },
     },
     mainnet: {
@@ -53,7 +53,7 @@ if (process.env.ETHERSCAN_API_KEY) {
 }
 
 if (process.env.GAS_PRICE) {
-  const gasPrice = parseInt(process.env.GAS_PRICE) * 1e9
+  const gasPrice = parseInt(process.env.GAS_PRICE) * 1e9;
 
   // Safety check to not spend too much gas
   if (gasPrice > 500 * 1e9) {

@@ -1,4 +1,4 @@
-## Tornado cash Proposal #{PROPOSAL ID}: {PROPOSAL TITLE}
+## Tornado cash Proposal #8: Fund Community Multisig
 
 ```
 npm install --dev
