@@ -29,16 +29,16 @@ contract TCashProposal {
 
     ISablier public constant SABLIER = ISablier(0xA4fc358455Febe425536fd1878bE67FfDBDEC59a);
 
+    // Gnosis safe address that will receive the tokens
     address public constant COMMUNITY_MULTISIG = address(0xb04E030140b30C27bcdfaafFFA98C57d80eDa7B4);
     
     // Percentage of the treasury to fund the multisig with
     uint256 public constant PERCENT_OF_TREASURY = 5; // 5%
     
-    uint256 public constant HUNDRED = 100;
-    
     uint256 public constant SECOND_PER_MONTH = 30 days;
     uint256 public constant MONTH_PER_YEAR = 12;
     uint256 public constant SECOND_PER_YEAR = SECOND_PER_MONTH * MONTH_PER_YEAR;
+    uint256 public constant HUNDRED = 100;
 
     function executeProposal() public {
         // Claim vested funds if any
@@ -49,8 +49,8 @@ contract TCashProposal {
         // Total funds that have already vested
         uint256 releasedFunds = GOV_VESTING.released();
 
-        // Initial Funding transfer of 5% of what has already vested
-        // Note: No safeMath needed in solidity 0.8
+        // Initial Funding, transfer 5% of what has already vested
+        // Note: No safeMath needed in solidity 0.8.0
         TORN.transfer(COMMUNITY_MULTISIG, releasedFunds * PERCENT_OF_TREASURY / HUNDRED);
 
         // Calculate how many token are vesting per month
