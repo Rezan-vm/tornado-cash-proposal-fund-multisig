@@ -1,15 +1,77 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.7.0;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "hardhat/console.sol";
 
-// Example proposal, transfer some TORN tokens to DUDE
+interface ISablier {
+    function createStream(
+        address recipient,
+        uint256 deposit,
+        address tokenAddress,
+        uint256 startTime,
+        uint256 stopTime
+    ) external returns (uint256);
+}
+
+interface Vesting {
+  function SECONDS_PER_MONTH() external view returns (uint256);
+  function release() external;
+  function vestedAmount() external view returns (uint256);
+  function released() external view returns (uint256);
+  function startTimestamp() external view returns (uint256);
+}
+
 contract TCashProposal {
     IERC20 public constant TORN = IERC20(0x77777FeDdddFfC19Ff86DB637967013e6C6A116C);
-    address public constant DUDE = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-    uint256 public constant TRANSFER_AMOUNT = 10 ether;
+    
+    Vesting public constant GOV_VESTING = Vesting(0x179f48C78f57A3A78f0608cC9197B8972921d1D2);
+
+    ISablier public constant SABLIER = ISablier(0xA4fc358455Febe425536fd1878bE67FfDBDEC59a);
+
+    address public constant COMMUNITY_MULTISIG = address(0xb04E030140b30C27bcdfaafFFA98C57d80eDa7B4);
+    
+    // Percentage of the treasury to fund the multisig with
+    uint256 public constant PERCENT_OF_TREASURY = 5; // 5%
+    
+    uint256 public constant HUNDRED = 100;
+    
+    uint256 public constant SECOND_PER_MONTH = 30 days;
+    uint256 public constant MONTH_PER_YEAR = 12;
+    uint256 public constant SECOND_PER_YEAR = SECOND_PER_MONTH * MONTH_PER_YEAR;
 
     function executeProposal() public {
-        TORN.transfer(DUDE, TRANSFER_AMOUNT);
+        // Claim vested funds if any
+        if(GOV_VESTING.vestedAmount() > 0) {
+            GOV_VESTING.release();
+        }
+
+        // Total funds that have already vested
+        uint256 releasedFunds = GOV_VESTING.released();
+
+        // Initial Funding transfer of 5% of what has already vested
+        // Note: No safeMath needed in solidity 0.8
+        TORN.transfer(COMMUNITY_MULTISIG, releasedFunds * PERCENT_OF_TREASURY / HUNDRED);
+
+        // Calculate how many token are vesting per month
+        uint256 elapsedMonths = (block.timestamp - GOV_VESTING.startTimestamp()) / SECOND_PER_MONTH;
+        uint256 vestingPerMonth = releasedFunds / elapsedMonths;
+        
+        // Send to sablier 5% of what is about to unlock in the next 12 months
+        uint256 sablierDeposit = vestingPerMonth * MONTH_PER_YEAR * PERCENT_OF_TREASURY / HUNDRED;
+        
+        // The deposited amount in Sablier needs to be a multiple of the of the distribution period.
+        // Round down and distribute slightly less tokens.
+        uint256 sablierAdjustedDeposit = sablierDeposit - sablierDeposit % SECOND_PER_YEAR;
+
+        // Approve the amount and create the stream
+        TORN.approve(address(SABLIER), sablierAdjustedDeposit);
+        SABLIER.createStream(
+            COMMUNITY_MULTISIG,
+            sablierAdjustedDeposit,
+            address(TORN),
+            block.timestamp,
+            block.timestamp + SECOND_PER_YEAR
+        );
     }
 }
