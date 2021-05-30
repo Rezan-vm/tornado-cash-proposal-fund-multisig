@@ -25,7 +25,7 @@ const config: HardhatUserConfig = {
       gasPrice: 0,
       forking: {
         url: process.env.ETH_RPC_MAINNET,
-        blockNumber: 12524000,
+        blockNumber: 12536700,
       },
     },
     mainnet: {

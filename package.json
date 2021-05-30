@@ -1,11 +1,10 @@
 {
   "name": "tcash-proposal",
   "version": "1.0.0",
-  "description": "Torn cash proposal template",
+  "description": "Torn cash proposal",
   "main": "index.js",
   "scripts": {
-    "test": "npm hardhat test",
-    "lint": "solhint --config ./.solhint.json --max-warnings 0 --fix \"contracts/**/*.sol\""
+    "test": "npm hardhat test"
   },
   "author": "",
   "license": "ISC",
