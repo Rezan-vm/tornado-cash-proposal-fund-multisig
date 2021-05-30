@@ -3,7 +3,7 @@ import { Contract } from "@ethersproject/contracts";
 import { expect } from "chai";
 import { ethers, waffle } from "hardhat";
 
-import { getSignerFromAddress, advanceTime, takeSnapshot, restoreSnapshot } from "./helpers";
+import { getSignerFromAddress, advanceTime } from "./helpers";
 import governanceAbi from "../abi/governance.json";
 import governanceVestingAbi from "../abi/governance-vesting.json";
 import sablierAbi from "../abi/sablier.json";
@@ -31,6 +31,9 @@ describe("TCashProposal", function () {
   let torn: Contract;
   let snapshotId: string;
   it("Proposal should work", async function () {
+
+    // === deploy and pass proposal  ===
+
     const Proposal = await ethers.getContractFactory("TCashProposal");
     proposal = await Proposal.deploy();
     await proposal.deployed();
@@ -69,21 +72,21 @@ describe("TCashProposal", function () {
 
     // === Verify proposal ===
 
-    const defaultSigner = (await ethers.getSigners())[0];
-    const sablier = new Contract(sablierAddress, sablierAbi).connect(defaultSigner);
+    let sablier = new Contract(sablierAddress, sablierAbi).connect(waffle.provider);
     const governanceVesting = new Contract(governanceVestingAddress, governanceVestingAbi).connect(
-      defaultSigner
+      waffle.provider
     );
 
     const multisigBalance = await torn.balanceOf(communityMultisigAddress);
     expect(multisigBalance).eq((await governanceVesting.released()).mul(5).div(100));
 
     console.log(`Multisig balance after proposal: ${ethers.utils.formatEther(multisigBalance)} TORN`);
-
+    
+    // Check the stream
     const sablierLog = receipt.logs.find((x) => x.address === sablierAddress);
     const streamId = BigNumber.from(sablierLog.topics[1]).toNumber();
     const stream = await sablier.getStream(streamId);
-
+    
     expect(stream.sender).eq(governance.address);
     expect(stream.recipient).eq(communityMultisigAddress);
     expect(stream.tokenAddress).eq(torn.address);
@@ -96,10 +99,32 @@ describe("TCashProposal", function () {
     const sablierDeposit = stream.deposit;
 
     // 5% of the tokens vesting in the next year: 5.5m TORN / 5 year * 5%
-    const expectedStreamedAmount = ethers.utils.parseEther("5500000").div(5).mul(5).div(100);
-    const adjustedExpectedStreamedAmount = expectedStreamedAmount.sub(expectedStreamedAmount.mod(secondPerYear))
-    expect(sablierDeposit).eq(adjustedExpectedStreamedAmount);
+    const streamedAmount = ethers.utils.parseEther("5500000").div(5).mul(5).div(100);
+    const adjustedStreamedAmount = streamedAmount.sub(
+      streamedAmount.mod(secondPerYear)
+    );
+    expect(sablierDeposit).eq(adjustedStreamedAmount);
 
-    console.log(`Tokens in sablier stream: ${ethers.utils.formatEther(sablierDeposit)} TORN`)
+    console.log(`Tokens in sablier stream: ${ethers.utils.formatEther(sablierDeposit)} TORN`);
+
+    // Wait 6 months and claim the stream
+    await advanceTime(secondPerYear / 2);
+    sablier = sablier.connect(await getSignerFromAddress(communityMultisigAddress));
+    await sablier.withdrawFromStream(streamId, adjustedStreamedAmount.div(2));
+    const multisigBalanceAfter6Months = await torn.balanceOf(communityMultisigAddress);
+    expect(multisigBalanceAfter6Months).eq(multisigBalance.add(adjustedStreamedAmount.div(2)))
+
+    console.log(`Multisig balance after 6 months: ${ethers.utils.formatEther(multisigBalanceAfter6Months)} TORN`);
+
+    // Wait 6 month and claim the rest
+    await advanceTime(secondPerYear / 2);
+    await sablier.withdrawFromStream(streamId, adjustedStreamedAmount.div(2));
+    const multisigBalanceAfter1Year = await torn.balanceOf(communityMultisigAddress);
+    expect(multisigBalanceAfter1Year).eq(multisigBalance.add(adjustedStreamedAmount))
+
+    console.log(`Multisig balance after 1 year: ${ethers.utils.formatEther(multisigBalanceAfter1Year)} TORN`);
+    
+    // Check that the stream was emptied and deleted from storage
+    expect(sablier.getStream(streamId)).revertedWith("stream does not exist");    
   });
 });
