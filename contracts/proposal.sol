@@ -1,4 +1,11 @@
 //SPDX-License-Identifier: MIT
+
+// Tornado Cash proposal to fund a multisig with 5% of the vested TORN of the governance treasury 
+// and 5% of the funds vesting over the next 12 month. The multisig is owned by community members
+// and its goal is to funds ecosystem initiatives. 
+
+// Author: @Rezan-vm
+
 pragma solidity ^0.8.0;
 
 interface IERC20 {
